@@ -1,0 +1,308 @@
+# -*- coding: utf-8 -*-
+# ═══════════════════════════════════════════════════
+# 🐺 الذئب المنفرد - الأداة الاحترافية 🐺
+# 👑 @cb_s_p | جميع المكتبات في أداة واحدة
+# ═══════════════════════════════════════════════════
+import os, sys, time, random, json, base64, hashlib, re, socket, threading, sqlite3, shutil, subprocess, string, uuid, datetime
+from datetime import datetime
+from concurrent.futures import ThreadPoolExecutor
+from urllib.parse import urlparse, urlencode
+import requests
+from requests.adapters import HTTPAdapter
+from requests.packages.urllib3.util.retry import Retry
+
+# مكتبات إضافية (ثبتها إذا ما موجودة)
+try:
+    from bs4 import BeautifulSoup
+    from PIL import Image
+    from cryptography.fernet import Fernet
+    import paramiko
+    import nmap
+    import scapy.all as scapy
+    import colorama
+    from colorama import Fore, Back, Style
+    colorama.init()
+except:
+    pass
+
+# ═══════════════ الإعدادات ═══════════════
+class WolfToolkit:
+    """أداة الذئب المنفرد الاحترافية"""
+    
+    def __init__(self):
+        self.version = "2.0"
+        self.author = "الذئب المنفرد | @cb_s_p"
+        self.session = self.create_session()
+        
+    def create_session(self):
+        """جلسة احترافية مع retry"""
+        session = requests.Session()
+        retry = Retry(total=3, backoff_factor=0.5)
+        adapter = HTTPAdapter(max_retries=retry)
+        session.mount('http://', adapter)
+        session.mount('https://', adapter)
+        return session
+    
+    # ═══════════ 1. طلبات HTTP متقدمة ═══════════
+    def http_request(self, url, method='GET', data=None, headers=None, proxy=None, timeout=10):
+        """طلب HTTP احترافي"""
+        try:
+            if method == 'GET':
+                r = self.session.get(url, headers=headers, proxies=proxy, timeout=timeout)
+            elif method == 'POST':
+                r = self.session.post(url, data=data, headers=headers, proxies=proxy, timeout=timeout)
+            return r.status_code, r.text[:500]
+        except Exception as e:
+            return None, str(e)
+    
+    # ═══════════ 2. فحص منافذ ═══════════
+    def port_scan(self, host, ports=[21,22,25,53,80,443,3306,8080]):
+        """فحص المنافذ المفتوحة"""
+        open_ports = []
+        for port in ports:
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.settimeout(1)
+            result = sock.connect_ex((host, port))
+            if result == 0:
+                service = {21:'FTP',22:'SSH',25:'SMTP',53:'DNS',80:'HTTP',443:'HTTPS',3306:'MySQL',8080:'Proxy'}.get(port,'?')
+                open_ports.append(f"{port} ({service})")
+            sock.close()
+        return open_ports
+    
+    # ═══════════ 3. DNS Lookup ═══════════
+    def dns_lookup(self, domain):
+        """فحص DNS"""
+        records = {}
+        try:
+            records['A'] = socket.gethostbyname(domain)
+            records['MX'] = socket.getaddrinfo(domain, 25)
+        except: pass
+        return records
+    
+    # ═══════════ 4. WHOIS ═══════════
+    def whois_lookup(self, domain):
+        """معلومات WHOIS"""
+        try:
+            r = requests.get(f'https://api.hackertarget.com/whois/?q={domain}', timeout=10)
+            return r.text[:500]
+        except: return None
+    
+    # ═══════════ 5. فحص Subdomains ═══════════
+    def subdomain_finder(self, domain):
+        """البحث عن نطاقات فرعية"""
+        subs = ['www','mail','ftp','admin','test','dev','api','blog','shop','app']
+        found = []
+        for sub in subs:
+            try:
+                socket.gethostbyname(f"{sub}.{domain}")
+                found.append(f"{sub}.{domain}")
+            except: pass
+        return found
+    
+    # ═══════════ 6. تشفير AES ═══════════
+    def encrypt_aes(self, data, key=None):
+        """تشفير AES-256"""
+        if not key:
+            key = Fernet.generate_key()
+        f = Fernet(key)
+        encrypted = f.encrypt(data.encode() if isinstance(data, str) else data)
+        return encrypted, key
+    
+    def decrypt_aes(self, encrypted_data, key):
+        """فك تشفير AES"""
+        f = Fernet(key)
+        return f.decrypt(encrypted_data).decode()
+    
+    # ═══════════ 7. هاش ═══════════
+    def hash_generator(self, text, algo='sha256'):
+        """توليد هاش"""
+        if algo == 'md5': return hashlib.md5(text.encode()).hexdigest()
+        elif algo == 'sha1': return hashlib.sha1(text.encode()).hexdigest()
+        elif algo == 'sha256': return hashlib.sha256(text.encode()).hexdigest()
+        elif algo == 'sha512': return hashlib.sha512(text.encode()).hexdigest()
+    
+    # ═══════════ 8. Web Scraping ═══════════
+    def scrape_page(self, url):
+        """سحب بيانات من صفحة"""
+        try:
+            r = requests.get(url, timeout=10)
+            soup = BeautifulSoup(r.text, 'html.parser')
+            return {
+                'title': soup.title.string if soup.title else 'No title',
+                'links': len(soup.find_all('a')),
+                'images': len(soup.find_all('img')),
+                'text': soup.get_text()[:500]
+            }
+        except: return None
+    
+    # ═══════════ 9. فحص SQL Injection ═══════════
+    def sqli_scan(self, url):
+        """فحص ثغرات SQL"""
+        payloads = ["'", '"', '`', "')", '")', "`)"]
+        vulnerable = []
+        for payload in payloads:
+            try:
+                test_url = f"{url}{payload}"
+                r = requests.get(test_url, timeout=5)
+                errors = ['sql', 'mysql', 'sqlite', 'postgresql', 'oracle', 'syntax error']
+                for error in errors:
+                    if error in r.text.lower():
+                        vulnerable.append(f"SQLi: {payload}")
+                        break
+            except: pass
+        return vulnerable
+    
+    # ═══════════ 10. فحص XSS ═══════════
+    def xss_scan(self, url):
+        """فحص ثغرات XSS"""
+        payloads = ['<script>alert(1)</script>', '"><script>alert(1)</script>', '<img src=x onerror=alert(1)>']
+        vulnerable = []
+        for payload in payloads:
+            try:
+                test_url = f"{url}{payload}"
+                r = requests.get(test_url, timeout=5)
+                if payload in r.text:
+                    vulnerable.append(f"XSS: {payload[:30]}")
+            except: pass
+        return vulnerable
+    
+    # ═══════════ 11. فحص Directory ═══════════
+    def dir_bruteforce(self, url):
+        """البحث عن مجلدات مخفية"""
+        dirs = ['admin','login','wp-admin','phpmyadmin','backup','uploads','.git','.env','config']
+        found = []
+        for d in dirs:
+            try:
+                test_url = f"{url}/{d}"
+                r = requests.get(test_url, timeout=3)
+                if r.status_code in [200,301,302,403]:
+                    found.append(f"/{d} ({r.status_code})")
+            except: pass
+        return found
+    
+    # ═══════════ 12. SSL Checker ═══════════
+    def ssl_check(self, host, port=443):
+        """فحص شهادة SSL"""
+        try:
+            import ssl
+            ctx = ssl.create_default_context()
+            with socket.create_connection((host, port), timeout=5) as sock:
+                with ctx.wrap_socket(sock, server_hostname=host) as ssock:
+                    cert = ssock.getpeercert()
+                    return {
+                        'issued_to': dict(x[0] for x in cert['subject']),
+                        'issued_by': dict(x[0] for x in cert['issuer']),
+                        'valid_from': cert['notBefore'],
+                        'valid_to': cert['notAfter'],
+                    }
+        except: return None
+    
+    # ═══════════ 13. Header Analyzer ═══════════
+    def header_analysis(self, url):
+        """تحليل رؤوس HTTP"""
+        try:
+            r = requests.get(url, timeout=5)
+            headers = r.headers
+            issues = []
+            if 'X-Frame-Options' not in headers: issues.append('Missing X-Frame-Options')
+            if 'X-Content-Type-Options' not in headers: issues.append('Missing X-Content-Type-Options')
+            if 'Content-Security-Policy' not in headers: issues.append('Missing CSP')
+            if 'Strict-Transport-Security' not in headers: issues.append('Missing HSTS')
+            return {'server': headers.get('Server','Hidden'), 'issues': issues}
+        except: return None
+    
+    # ═══════════ 14. IP Info ═══════════
+    def ip_info(self, ip=None):
+        """معلومات IP"""
+        try:
+            r = requests.get(f'http://ip-api.com/json/{ip or ""}', timeout=5)
+            return r.json()
+        except: return None
+    
+    # ═══════════ 15. توليد باسورد ═══════════
+    def generate_password(self, length=16):
+        """توليد باسورد قوي"""
+        chars = string.ascii_letters + string.digits + "!@#$%^&*"
+        return ''.join(random.choices(chars, k=length))
+    
+    # ═══════════ 16. ضغط/فك ضغط ═══════════
+    def compress_file(self, filepath):
+        """ضغط ملف"""
+        import zipfile
+        zip_path = filepath + '.zip'
+        with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zf:
+            zf.write(filepath, os.path.basename(filepath))
+        return zip_path
+    
+    # ═══════════ 17. فحص ملفات ═══════════
+    def file_info(self, filepath):
+        """معلومات ملف"""
+        if os.path.exists(filepath):
+            stat = os.stat(filepath)
+            return {
+                'size': f"{stat.st_size / 1024:.1f} KB",
+                'created': datetime.fromtimestamp(stat.st_ctime).strftime('%Y-%m-%d %H:%M'),
+                'modified': datetime.fromtimestamp(stat.st_mtime).strftime('%Y-%m-%d %H:%M'),
+            }
+        return None
+    
+    # ═══════════ 18. Base64 ═══════════
+    def b64_encode(self, text):
+        return base64.b64encode(text.encode()).decode()
+    
+    def b64_decode(self, text):
+        return base64.b64decode(text.encode()).decode()
+    
+    # ═══════════ 19. فحص اتصال ═══════════
+    def ping(self, host, count=4):
+        """فحص اتصال"""
+        param = '-n' if os.name == 'nt' else '-c'
+        cmd = f"ping {param} {count} {host}"
+        result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+        return 'TTL=' in result.stdout
+    
+    # ═══════════ 20. تقرير شامل ═══════════
+    def full_report(self, target):
+        """تقرير شامل عن هدف"""
+        report = f"""
+╔══════════════════════════════════════╗
+║  🐺 الذئب المنفرد - تقرير شامل    ║
+║  👑 @cb_s_p                        ║
+╠══════════════════════════════════════╣
+║  🎯 الهدف: {target}
+║  📡 IP: {self.dns_lookup(target).get('A','?')}
+║  🚪 المنافذ: {self.port_scan(target)}
+║  🌐 النطاقات: {self.subdomain_finder(target)}
+║  🔒 SSL: {'Valid' if self.ssl_check(target) else 'None'}
+║  ⚠️ الرؤوس: {self.header_analysis('https://'+target)}
+║  📁 مجلدات: {self.dir_bruteforce('https://'+target)}
+║  🕐 {datetime.now().strftime('%Y-%m-%d %H:%M')}
+╚══════════════════════════════════════╝
+"""
+        return report
+
+# ═══════════════ تشغيل ═══════════════
+if __name__ == "__main__":
+    wolf = WolfToolkit()
+    
+    print(f"""
+{Fore.RED}╔══════════════════════════════════════╗
+║  🐺 الذئب المنفرد - Wolf Toolkit  ║
+║  👑 @cb_s_p                        ║
+╚══════════════════════════════════════╝{Style.RESET_ALL}
+""")
+    
+    # مثال استخدام
+    print(f"{Fore.GREEN}[1] فحص موقع...{Style.RESET_ALL}")
+    target = "testphp.vulnweb.com"
+    print(wolf.full_report(target))
+    
+    print(f"\n{Fore.GREEN}[2] تشفير...{Style.RESET_ALL}")
+    enc, key = wolf.encrypt_aes("Wolf Secret Message")
+    print(f"Encrypted: {enc[:50]}...")
+    
+    print(f"\n{Fore.GREEN}[3] توليد باسورد...{Style.RESET_ALL}")
+    print(f"Password: {wolf.generate_password(20)}")
+    
+    print(f"\n{Fore.GREEN}[4] IP Info...{Style.RESET_ALL}")
+    print(wolf.ip_info()
